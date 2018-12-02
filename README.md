@@ -5,5 +5,6 @@ Supported Environments:
 MSVC project: BadassPascal.sln  
 GNU C++/Clang: compile BadassPascal.cpp directly  
 >e.g.  
->`g++ -O3 BadassPascal.cpp -o BP`
+>`g++ -O3 BadassPascal.cpp -o BP`  
+>`./BP InsersionSort.pas`  
 
