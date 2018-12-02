@@ -9,12 +9,6 @@
 #include <iostream>
 #include <cstring>
 
-
-class NullBuffer : public std::streambuf
-{
-public:
-	int overflow(int c) { return c; }
-};
 #define MAX_BUFFER 102400
 
 char buffer[MAX_BUFFER + 2];
