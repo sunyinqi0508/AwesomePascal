@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
 VisualStudioVersion = 14.0.23107.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ConsoleApplication18", "ConsoleApplication18\ConsoleApplication18.vcxproj", "{62CCFC20-46DF-4039-97A5-AA068BD6A016}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BadassPascal", "BadassPascal\BadassPascal.vcxproj", "{62CCFC20-46DF-4039-97A5-AA068BD6A016}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

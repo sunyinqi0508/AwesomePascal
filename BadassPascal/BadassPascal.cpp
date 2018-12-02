@@ -1,8 +1,5 @@
-// ConsoleApplication18.cpp : Defines the entry point for the console application.
-//
-
-#include "stdafx.h"
-#include <deque>
+#include <limits>
+#include <vector>
 #include <stack>
 #include <vector>
 #include <set>
@@ -10,7 +7,14 @@
 #include <cstdio>
 #include <valarray>
 #include <iostream>
+#include <cstring>
 
+
+class NullBuffer : public std::streambuf
+{
+public:
+	int overflow(int c) { return c; }
+};
 #define MAX_BUFFER 102400
 
 char buffer[MAX_BUFFER + 2];
@@ -32,7 +36,7 @@ enum Type { PSR, SYM, NUM };
 #define S(a) P(a) + NOTEQ + 1
 #define DeS(a) a - 4 - NOTEQ 
 #define _S(a) a >= S(0) && a <= S(FACT)
-#define init_follow(...) init_st(__VA_ARGS__, -1)[0]
+#define init_follow(n, ...) init_st((n + 1), __VA_ARGS__, -1)[0]
 #define A_MOD P(EQUAL)
 
 struct IDS {
@@ -44,12 +48,11 @@ struct IDS {
 	}
 }**pres;
 
-template <class T>
 struct HASH {
 
-	IDS *id;
+	IDS *id = 0;
 	char* value;
-	unsigned int* int_value;
+	unsigned int* int_value = 0;
 	HASH(char* value, int index)
 	{
 		this->value = value;
@@ -72,17 +75,19 @@ struct HASH {
 	{
 		if (int_value != NULL)
 			delete(int_value);
+		if (id)
+			delete id;
 	}
 };
 
-vector<HASH<char*> *> sym;
-vector<HASH<unsigned int*> *> num;
+vector<HASH *> sym;
+vector<HASH *> num;
 
 struct GrammaUnit {
 	int *follows;
 };
 
-deque<IDS*> identifiers;
+vector<IDS*> identifiers;
 
 
 void GETSYM() {
@@ -94,10 +99,11 @@ void GETSYM() {
 	bool takein = false, lastTaken = false;
 	IDS *lastMatch;
 	//init
-	pres = new IDS*[NOTEQ];
+	pres = new IDS*[NOTEQ + 1];
 	for (j = 0; j <= NOTEQ; j++) {
 		pres[j] = new IDS(0, j);
 	}
+
 	while (*bp) {
 		takein = false;
 		lastTaken = false;
@@ -186,7 +192,7 @@ void GETSYM() {
 				for (j = 0; j < index; j++)
 					tmp[j] = (bp-index)[j];
 				tmp[index] = 0;
-				sym.push_back(new HASH<char *> (tmp,n_ids_const));
+				sym.push_back(new HASH (tmp,n_ids_const));
 				lastMatch = sym.back()->id;
 				lastLength = index - 1;
 				flags[n_pre_const - 1] = true;
@@ -228,7 +234,7 @@ void GETSYM() {
 					tmp[j] = (bp - index)[j];
 				tmp[index] = 0;
 				
-				num.push_back(new HASH<unsigned int *>(tmp, n_nums_const));
+				num.push_back(new HASH(tmp, n_nums_const));
 				lastMatch = num.back()->id;
 				lastLength = index - 1;
 				flags[n_pre + n_ids_const + 1] = true;
@@ -250,27 +256,21 @@ void GETSYM() {
 		}
 		else
 		{
-			cout << "undefined identifier " << *bp << endl;
+			cout << "undefined identifier " << *bp << '\n';
 			exit(1);
 		}
 	}
+
 	if (index == 1 && *(bp - index) == '.')
 		identifiers.push_back(pres[DOT]);
-
-	for each (IDS *var in identifiers)
-	{
-		cout<<var->type<<'\t'<<var->index<< endl;
-	}
-	cout <<endl <<"Ints"<< endl;
-	for each (HASH<unsigned int *> *var in num)
-	{
-		cout << *(var->int_value) << endl;
-	}
-	cout << endl << "Syms" << endl;
-	for each (HASH<char*> *var in sym)
-	{
-		cout << var->value << endl;
-	}
+	for (IDS *var : identifiers)
+		cout<<var->type<<'\t'<<var->index<< '\n';
+	cout <<'\n' <<"Ints"<< '\n';
+	for  (HASH *var : num)
+		cout << *(var->int_value) << '\n';
+	cout << '\n' << "Syms" << '\n';
+	for  (HASH *var : sym)
+		cout << var->value << '\n';
 }
 
 
@@ -282,14 +282,14 @@ struct Instruction {
 		this->rop = rop;
 	}
 } *firstjump;
-deque<pair<int, unsigned int>> *propos[1024];
-bool checklist[1024];// = { true };
+vector<pair<int, unsigned int>> *propos[1024];
+bool checklist[1024];
 bool geting_proc = false;
-deque<int> INTS;
+vector<int> INTS;
 int lv = -1, dx[1024] = { 0 };
 void push();
 template <typename T>
-class cheque : public deque<T> {
+class cheque : public vector<T> {
 public:
 	void push_back(T&& _Val )
 	{
@@ -303,11 +303,11 @@ public:
 			push();
 		}
 		printf("inserting instructions...");
-		deque<T>::push_back(_Val);
+		vector<T>::push_back(_Val);
 	}
 	void pb(T&& _Val)
 	{
-		deque<T>::push_back(_Val);
+		vector<T>::push_back(_Val);
 	}
 };
 cheque<Instruction *> instructions;
@@ -316,22 +316,20 @@ void push() {
 	INTS.pop_back();
 }
 inline int** init_st(int i, ...) {
-	int j = 0, k = 1, t;
+	int j = 0, k = 0, t;
 	int **p = new int*[16];
 	va_list arg_ptr;
 	va_start(arg_ptr, i);
-	p[0] = new int[8];
-	t = i;
-	p[0][0] = i;
+	p[0] = new int[12];
 
 	do {
+		t = va_arg(arg_ptr, int);
+		p[j][k++] = t;
 		if (t == -2)
 		{
 			p[++j] = new int[8];
 			k = 0;
 		}
-		t = va_arg(arg_ptr, int);
-		p[j][k++] = t;
 	} while (t != -1);
 	p[j + 1] = new int(-3);
 
@@ -354,7 +352,7 @@ struct Reduced{
 		this->type = type;
 	}
 	~Reduced() {
-		free(param);
+		//free(param);
 	}
 };
 class Indexes {
@@ -379,10 +377,14 @@ public:
 			return i < a.i;
 	}
 };
+
+struct Vartable {
+
+};
 stack<int> lastSP;
-deque<Reduced *>  buf;
-deque<pair<deque<pair<int, unsigned int>>, int>> vartable;
-deque<IDS *>::iterator it;
+vector<Reduced *>  buf;
+vector<pair<vector<pair<int, unsigned int>>*, int>> vartable;
+vector<IDS *>::iterator it;
 Reduced *nextSym = 0;
 stack<set<Indexes>> archive;
 struct Pos {
@@ -401,7 +403,7 @@ Reduced* peekNext()
 			case 2:
 				return new Reduced(2, (void *)num[(*it)->index]->int_value);
 			default:
-				printf("Are you an asshole? An unchecked list? Fuck off.");
+				printf("Unchecked list?");
 				exit(1);
 			}
 		else
@@ -443,11 +445,11 @@ inline void popArchive(const int&i, const int &j) {
 }
 inline bool searchTableforVar(const int& param, int &level, int &d, bool &found, const bool con = false)
 {
-	for each (pair<deque<pair<int, unsigned int>>, int> var in vartable)
+	for  (pair<vector<pair<int, unsigned int>>*, int> var : vartable)
 	{
-		if (var.second == 1 || var.second ==0 && con)
+		if (var.second == 1 || (var.second == 0 && con))
 		{
-			for each (pair<int, unsigned int> v in var.first)
+			for  (pair<int, unsigned int> v : *(var.first))
 			{
 				if (v.first == param)
 				{
@@ -459,18 +461,15 @@ inline bool searchTableforVar(const int& param, int &level, int &d, bool &found,
 			}
 			
 			if (found)
-			{
-				//level--;
 				return (bool)var.second;
-			}
+			
 		}
 		level++;
 	}
-	
+	return false;
 }
 
 Reduced* reduce(int i, int j) {
-	//popArchive(i, j);
 
 	void *param = new int(0);
 	switch (i)
@@ -479,7 +478,7 @@ Reduced* reduce(int i, int j) {
 	{	
 		pop(i, j);
 		if (!Next())
-			cout << "succeed" << endl;
+			cout << "succeed" << '\n';
 	}
 	break;
 	case SP:
@@ -494,9 +493,9 @@ Reduced* reduce(int i, int j) {
 		lv++;
 		checklist[lv] = 0;
 		if (vartable.empty())
-			vartable.push_back(pair<deque<pair<int, unsigned int>>, int>(deque<pair<int, unsigned int>>(), 0));
+			vartable.push_back(make_pair(new vector<pair<int, unsigned int>>(), 0));
 		else if (vartable.back().second)
-			vartable.push_back(pair<deque<pair<int, unsigned int>>, int>(deque<pair<int, unsigned int>>(), 0));
+			vartable.push_back(make_pair(new vector<pair<int, unsigned int>>(), 0));
 		pop(i, j);
 		
 	}
@@ -507,44 +506,43 @@ Reduced* reduce(int i, int j) {
 	case INIT:
 	{
 		if (vartable.empty())
-			vartable.push_back(pair<deque<pair<int, unsigned int>>, int>(deque<pair<int, unsigned int>>(), 0));
+			vartable.push_back(make_pair(new vector<pair<int, unsigned int>>(), 0));
 		else
 			if (vartable.back().second)
-				vartable.push_back(pair<deque<pair<int, unsigned int>>, int>(deque<pair<int, unsigned int>>(), 0));
-		pair<deque<pair<int, unsigned int>>, int> *top = &vartable.back();
+				vartable.push_back(make_pair(new vector<pair<int, unsigned int>>(), 0));
+		pair<vector<pair<int, unsigned int>>*, int> *top = &vartable.back();
 		Reduced* last = buf.back();
 		if (last->type != 2)
-			cout << "Reducing Error: Expecting a number." << endl;
+			cout << "Reducing Error: Expecting a number." << '\n';
 		unsigned int intval = *((unsigned int *)last->param);
 		buf.pop_back();
 		buf.pop_back();
 		last = buf.back();
 		if (last->type != 1)
-			cout << "Reducing Error: Expecting a number." << endl;
+			cout << "Reducing Error: Expecting a number." << '\n';
 		int index = *((int *)last->param);
-		top->first.push_back(pair<int, unsigned int>(index, intval));
+		top->first->push_back(pair<int, unsigned int>(index, intval));
 		buf.pop_back();
 	}
 		break;
 	case V: 
 	{
 		if (vartable.back().second != 1)
-			vartable.push_back(pair<deque<pair<int, unsigned int>>, int>(deque<pair<int, unsigned int>>(), 1));
+			vartable.push_back(make_pair(new vector<pair<int, unsigned int>>(), 1));
 		if (j == 1)
 		{
 			buf.pop_back();
 			buf.pop_back();
 			Reduced *last = buf.back();
-			pair<deque<pair<int, unsigned int>>, int> *top = &vartable.back();
-			top->first.push_back(pair<int, unsigned int>(*((int *)last->param), dx[lv]++));
-			//instructions.push_back(new Instruction(INT, 0, vartable.back().first.size() + 2));
+			pair<vector<pair<int, unsigned int>>*, int> *top = &vartable.back();
+			top->first->push_back(pair<int, unsigned int>(*((int *)last->param), dx[lv]++));
 
-			vartable.push_back(pair<deque<pair<int, unsigned int>>, int>(deque<pair<int, unsigned int>>(), 2));
-			propos[lv] = &vartable.back().first;
+			vartable.push_back(make_pair(new vector<pair<int, unsigned int>>(), 2));
+			propos[lv] = vartable.back().first;
 			buf.pop_back();
 			buf.pop_back();
 		}
-		INTS.push_back(vartable[vartable.size() - 2].first.size() + 2);
+		INTS.push_back(vartable[vartable.size() - 2].first->size() + 2);
 	}
 	break;
 	case VDEF:
@@ -553,12 +551,12 @@ Reduced* reduce(int i, int j) {
 			buf.pop_back();
 			Reduced *last = buf.back();
 			if (vartable.empty())
-				vartable.push_back(pair<deque<pair<int, unsigned int>>, int>(deque<pair<int, unsigned int>>(), 1));
+				vartable.push_back(make_pair(new vector<pair<int, unsigned int>>(), 1));
 			else
 				if (vartable.back().second != 1)
-					vartable.push_back(pair<deque<pair<int, unsigned int>>, int>(deque<pair<int, unsigned int>>(), 1));
-			pair<deque<pair<int, unsigned int>>, int> *top = &vartable.back();
-			top->first.push_back(pair<int, unsigned int>(*((int *)last->param), dx[lv]++));
+					vartable.push_back(make_pair(new vector<pair<int, unsigned int>>(), 1));
+			pair<vector<pair<int, unsigned int>>*, int> *top = &vartable.back();
+			top->first->push_back(pair<int, unsigned int>(*((int *)last->param), dx[lv]++));
 			buf.pop_back();
 			buf.pop_back();
 		}
@@ -569,17 +567,7 @@ Reduced* reduce(int i, int j) {
 			buf.pop_back();
 			buf.pop_back();
 			buf.pop_back();
-			/*
-			if (vartable.empty())
-				vartable.push_back(pair<deque<pair<int, unsigned int>>, int>(deque < pair<int, unsigned int>>(), 2));
-			else if (vartable.back().second!=1)
-				vartable.push_back(pair<deque<pair<int, unsigned int>>, int>(deque < pair<int, unsigned int>>(), 2));
-			
-			pair<deque<pair<int, unsigned int>>, int> *top = &vartable.back();
-			Reduced* name = buf.back();
-			top->first.push_back(pair<int, unsigned int>(*((int *)name->param), lastSP.top()));
-			lastSP.pop();
-			*/
+
 
 			buf.pop_back();
 			buf.pop_back();
@@ -598,7 +586,7 @@ Reduced* reduce(int i, int j) {
 			int level = 0, d;
 			searchTableforVar(pa, level, d, found);
 			if (!found)
-				cout << "Error: undefined identifier " << sym[pa]->value << endl;
+				cout << "Error: undefined identifier " << sym[pa]->value << '\n';
 			else
 				instructions.push_back(new Instruction(STO, level, d));
 		}
@@ -610,11 +598,11 @@ Reduced* reduce(int i, int j) {
 			buf.pop_back();
 			bool found = false;
 			int pos = 0;
-			for each (pair<deque<pair<int, unsigned int>>, int> var in vartable)
+			for  (pair<vector<pair<int, unsigned int>>*, int> var : vartable)
 			{
 				if (var.second == 2)
 				{
-					for each (pair<int, unsigned int> v in var.first)
+					for  (pair<int, unsigned int> v : *(var.first))
 					{
 						if (v.first == pa)
 						{
@@ -626,7 +614,7 @@ Reduced* reduce(int i, int j) {
 				}
 			}
 			if (!found)
-				cout << "Error: undefined procedure " << sym[pa]->value << endl;
+				cout << "Error: undefined procedure " << sym[pa]->value << '\n';
 			buf.pop_back();
 			instructions.push_back(new Instruction(JMP, 0, pos));
 		}
@@ -669,7 +657,7 @@ Reduced* reduce(int i, int j) {
 				instructions.push_back(new Instruction(STO, level, d));
 			}
 			else
-				cout << "Error: Undefined parameter: " << sym[*(int*)buf.back()->param]->value << endl;
+				cout << "Error: Undefined parameter: " << sym[*(int*)buf.back()->param]->value << '\n';
 			buf.pop_back();
 			buf.pop_back();
 			buf.pop_back();
@@ -687,12 +675,12 @@ Reduced* reduce(int i, int j) {
 				if(found)
 					instructions.push_back(new Instruction(LOD, level, d));
 				else
-					cout << "Error: Undefined parameter: " << sym[*(int*)buf.back()->param]->value << endl;
+					cout << "Error: Undefined parameter: " << sym[*(int*)buf.back()->param]->value << '\n';
 			}
 			else if (id->type == 2)
 				instructions.push_back(new Instruction(LIT, 0, *((int *)id->param)));
 			else
-				cout << "Error: Undefined parameter: " << *(int*)buf.back()->param - 3 << endl;
+				cout << "Error: Undefined parameter: " << *(int*)buf.back()->param - 3 << '\n';
 
 			instructions.push_back(new Instruction(SIO, 0, 1));
 				
@@ -753,7 +741,7 @@ Reduced* reduce(int i, int j) {
 					rop = 8;
 					break;
 				default:
-					cout << "Error: Expected an condition modifier." << endl;
+					cout << "Error: Expected an condition modifier." << '\n';
 					break;
 				}
 				if (rop == 9)
@@ -785,14 +773,14 @@ Reduced* reduce(int i, int j) {
 		buf.pop_back();
 		Pos* pos = (Pos *)buf.back()->param;
 		int end = pos->end, *start = new int(pos->start);
-		deque<Instruction *>::iterator iter = instructions.begin() + end;
+		vector<Instruction *>::iterator iter = instructions.begin() + end;
 		buf.pop_back();
 		int ari2 = *((int *)buf.back()->param);
 		if (ari2)
 			(*iter)->rop = 1;
 		else
 			instructions.erase(iter);
-		//if((*iter)->)
+
 		param = start;
 		buf.pop_back();
 	}
@@ -884,7 +872,7 @@ Reduced* reduce(int i, int j) {
 			else if(found && !type)
 				instructions.push_back(new Instruction(LIT, 0, d));
 			else
-				cout << "Error: Unfefined identifier: " << sym[*((int *)buf.back()->param)]->value << endl;
+				cout << "Error: Unfefined identifier: " << sym[*((int *)buf.back()->param)]->value << '\n';
 		}
 		break;
 		case 1:
@@ -920,49 +908,49 @@ Reduced* reduce(int i, int j) {
 void initStates() {
 
 	states = new int**[FACT + 1];	
-	states[P] = init_st(S(SP), P(DOT), -1);
-	states[SP] = init_st(S(C), S(V), S(PRO), S(ST), P(SEMICOLON), -1);
-	states[C] = init_st(-2, P(CONST), S(INIT), S(CDEF), P(SEMICOLON), -1);
-	states[CDEF] = init_st(-2, P(COMMA), S(INIT), S(CDEF), -1);
-	states[INIT] = init_st(1, P(EQUAL), 2, -1);
-	states[V] = init_st(-2, P(VAR), 1, S(VDEF), P(SEMICOLON), -1);
-	states[VDEF] = init_st(-2, P(COMMA), 1, S(VDEF), -1);
-	states[PRO] = init_st(-2, P(PROCEDURE), 1, P(SEMICOLON), S(SP), S(PRO), -1);
-	states[ST] = init_st(-2, 1, P(ASSIGNMENT), S(EXP), -2, P(CALL), 1, -2,
+	states[P] = init_st(3, S(SP), P(DOT), -1);
+	states[SP] = init_st(6, S(C), S(V), S(PRO), S(ST), P(SEMICOLON), -1);
+	states[C] = init_st(6, -2, P(CONST), S(INIT), S(CDEF), P(SEMICOLON), -1);
+	states[CDEF] = init_st(5, -2, P(COMMA), S(INIT), S(CDEF), -1);
+	states[INIT] = init_st(4, 1, P(EQUAL), 2, -1);
+	states[V] = init_st(6, -2, P(VAR), 1, S(VDEF), P(SEMICOLON), -1);
+	states[VDEF] = init_st(5, -2, P(COMMA), 1, S(VDEF), -1);
+	states[PRO] = init_st(7, -2, P(PROCEDURE), 1, P(SEMICOLON), S(SP), S(PRO), -1);
+	states[ST] = init_st(35, -2, 1, P(ASSIGNMENT), S(EXP), -2, P(CALL), 1, -2,
 		P(BEGIN), S(ST), S(MORE), P(END), -2, P(IF), S(COND), P(THEN), S(ST), -2,
 		P(WHILE), S(COND), P(DO), S(ST), -2, P(READ), P(LP), 1, P(RP), -2, P(WRITE),
 		P(LP), 1, P(RP), -2, P(SEMICOLON), - 1);
-	states[MORE] = init_st(-2, P(SEMICOLON), S(ST), S(MORE), -1);
-	states[COND] = init_st(P(ODD), S(EXP), -2, S(EXP), A_MOD, S(EXP), -1);
-	states[EXP] = init_st(S(ARI2), S(TERM), S(EXP2), -1);
-	states[EXP2] = init_st(-2, S(ARITH), S(TERM), S(EXP2), -1);
-	states[ARITH] = init_st(P(PLUS), -2, P(MINUS), -1);
-	states[ARI2] = init_st(-2, S(ARITH), - 1);
-	states[TERM] = init_st(S(FACT), S(FACTS), -1);
-	states[FACTS] = init_st(-2, S(MULDIV), S(FACT), S(FACTS), -1);
-	states[MULDIV] = init_st(P(MULTIPLE), -2, P(DIVISION), -1);
-	states[FACT] = init_st(1, -2, 2, -2, P(LP), S(EXP), P(RP), -1);
+	states[MORE] = init_st(5, -2, P(SEMICOLON), S(ST), S(MORE), -1);
+	states[COND] = init_st(7, P(ODD), S(EXP), -2, S(EXP), A_MOD, S(EXP), -1);
+	states[EXP] = init_st(4, S(ARI2), S(TERM), S(EXP2), -1);
+	states[EXP2] = init_st(5, -2, S(ARITH), S(TERM), S(EXP2), -1);
+	states[ARITH] = init_st(4, P(PLUS), -2, P(MINUS), -1);
+	states[ARI2] = init_st(3, -2, S(ARITH), - 1);
+	states[TERM] = init_st(3, S(FACT), S(FACTS), -1);
+	states[FACTS] = init_st(5, -2, S(MULDIV), S(FACT), S(FACTS), -1);
+	states[MULDIV] = init_st(4, P(MULTIPLE), -2, P(DIVISION), -1);
+	states[FACT] = init_st(8, 1, -2, 2, -2, P(LP), S(EXP), P(RP), -1);
 	
 	follows = new int*[FACT + 1];
-	follows[P] = init_follow(-1);
-	follows[SP] = init_follow(P(DOT), P(END), P(SEMICOLON), P(BEGIN), P(CALL), P(IF), P(WHILE), P(READ), P(WRITE), 1, P(PROCEDURE));
-	follows[C] = init_follow(P(VAR), P(END), P(SEMICOLON), P(BEGIN), P(CALL), P(IF), P(WHILE), P(READ), P(WRITE), 1, P(PROCEDURE));
-	follows[CDEF] = init_follow(P(SEMICOLON));
-	follows[INIT] = init_follow(P(SEMICOLON), P(COMMA));
-	follows[V] = init_follow(P(SEMICOLON), P(PROCEDURE), P(END), P(BEGIN), P(CALL), P(IF), P(WHILE), P(READ), P(WRITE), 1);
-	follows[VDEF] = init_follow(P(SEMICOLON));
-	follows[PRO] = init_follow(P(END), P(SEMICOLON), P(BEGIN), P(CALL), P(IF), P(WHILE), P(READ), P(WRITE), 1);
-	follows[ST] = init_follow(P(END), P(SEMICOLON));
-	follows[MORE] = init_follow(P(END));
-	follows[COND] = init_follow(P(THEN), P(DO));
-	follows[EXP] = init_follow(A_MOD, P(THEN), P(DO), P(RP), P(END), P(SEMICOLON));
-	follows[EXP2] = init_follow(A_MOD, P(THEN), P(DO), P(RP), P(END), P(SEMICOLON));
-	follows[ARITH] = init_follow(1, 2, P(LP));
-	follows[ARI2] = init_follow(1, 2, P(LP));
-	follows[TERM] = init_follow(P(PLUS), P(MINUS), A_MOD, P(THEN), P(DO), P(RP), P(END), P(SEMICOLON));
-	follows[FACTS] = init_follow(P(PLUS), P(MINUS), A_MOD, P(THEN), P(DO), P(RP), P(END), P(SEMICOLON));
-	follows[MULDIV] = init_follow(1, 2, P(LP));
-	follows[FACT] = init_follow(P(MULTIPLE), P(DIVISION), P(PLUS), P(MINUS), A_MOD, P(THEN), P(DO), P(END), P(SEMICOLON), P(RP));
+	follows[P] = init_follow(1, -1);
+	follows[SP] = init_follow(11, P(DOT), P(END), P(SEMICOLON), P(BEGIN), P(CALL), P(IF), P(WHILE), P(READ), P(WRITE), 1, P(PROCEDURE));
+	follows[C] = init_follow(11, P(VAR), P(END), P(SEMICOLON), P(BEGIN), P(CALL), P(IF), P(WHILE), P(READ), P(WRITE), 1, P(PROCEDURE));
+	follows[CDEF] = init_follow(1, P(SEMICOLON));
+	follows[INIT] = init_follow(2, P(SEMICOLON), P(COMMA));
+	follows[V] = init_follow(10, P(SEMICOLON), P(PROCEDURE), P(END), P(BEGIN), P(CALL), P(IF), P(WHILE), P(READ), P(WRITE), 1);
+	follows[VDEF] = init_follow(1, P(SEMICOLON));
+	follows[PRO] = init_follow(9, P(END), P(SEMICOLON), P(BEGIN), P(CALL), P(IF), P(WHILE), P(READ), P(WRITE), 1);
+	follows[ST] = init_follow(2, P(END), P(SEMICOLON));
+	follows[MORE] = init_follow(1, P(END));
+	follows[COND] = init_follow(2, P(THEN), P(DO));
+	follows[EXP] = init_follow(6, A_MOD, P(THEN), P(DO), P(RP), P(END), P(SEMICOLON));
+	follows[EXP2] = init_follow(6, A_MOD, P(THEN), P(DO), P(RP), P(END), P(SEMICOLON));
+	follows[ARITH] = init_follow(3, 1, 2, P(LP));
+	follows[ARI2] = init_follow(3, 1, 2, P(LP));
+	follows[TERM] = init_follow(8, P(PLUS), P(MINUS), A_MOD, P(THEN), P(DO), P(RP), P(END), P(SEMICOLON));
+	follows[FACTS] = init_follow(8, P(PLUS), P(MINUS), A_MOD, P(THEN), P(DO), P(RP), P(END), P(SEMICOLON));
+	follows[MULDIV] = init_follow(3, 1, 2, P(LP));
+	follows[FACT] = init_follow(10, P(MULTIPLE), P(DIVISION), P(PLUS), P(MINUS), A_MOD, P(THEN), P(DO), P(END), P(SEMICOLON), P(RP));
 
 
 	instructions.pb(new Instruction(JMP, 0, -1));
@@ -970,7 +958,6 @@ void initStates() {
 	checklist[0] = true;
 
 }
-//stack<void(*) (deque<IDS*>::iterator)> callback;  
 
 
 
@@ -979,7 +966,7 @@ inline void expend(set<Indexes> &togo) {
 	int size0, j;
 	do {
 		size0 = togo.size();
-		for each (Indexes var in togo)
+		for (Indexes var : togo)
 		{
 			j = states[var.i][var.j][var.k];
 			int i;
@@ -998,8 +985,7 @@ inline void expend(set<Indexes> &togo) {
 void Shift(set<Indexes> togo) {
 	if (lv == 0)
 		int null = 1;
-	if (address == 75)
-		int fuck = 1;
+
 	//shifting
 	Reduced* nextsym = peekNext();
 	set<Indexes> tobeReduced;
@@ -1072,7 +1058,7 @@ void Shift(set<Indexes> togo) {
 		if (!togo.empty())
 		{
 			set<Indexes> togoNext;
-			for each (Indexes var in togo){
+			for (Indexes var : togo){
 				var.k++;
 				togoNext.insert(var);
 			}
@@ -1084,7 +1070,7 @@ void Shift(set<Indexes> togo) {
 				geting_proc = true;
 			else if (geting_proc && nexttype == 1)
 			{
-				propos[lv]->push_back(pair<int, unsigned int>(*((int *)nextsym->param), INT_MAX));
+				propos[lv]->push_back(pair<int, unsigned int>(*((int *)nextsym->param), numeric_limits<int>::max()));
 				checklist[lv] = false;
 				geting_proc = false;
 			}
@@ -1103,41 +1089,43 @@ void BLOCK() {
 	//
 	expend(going);
 	Shift(going);
-	//callback.push(&I1);
-//	instructions[0]->rop = 1;//lastSP.top();
-	//lastSP.pop();
+
+
 	vartable.clear();
-	cout << address <<Next() << endl;
+	cout << address <<Next() << '\n';
 }
 
-deque<void **> *memory;
-deque<unsigned int> *t;
+vector<void **> *memory;
+vector<int> *t;
 
 int  PC, I;
 void* b;
 #define getij() _getij(i, j)
 #define geti _geti(i)
-inline void _getij(unsigned int &i, unsigned int &j) {
+inline void _getij(int &i, int &j) {
 	j = t->back();
 	t->pop_back();
 	i = t->back();
 	t->pop_back();
 }
-inline void _geti(unsigned int &i) {
+inline void _geti(int &i) {
 	i = t->back();
 	t->pop_back();
 }
 void PARSE() {
 
+	int inst = 0;
+	for (auto var : instructions)
+		cout << inst++ << " " << operations[var->nop] << " " << var->lop << " " << var->rop << '\n';
+	
 	I = 0;
 	PC = -1;
-	unsigned int i, j;
-	memory = new deque<void **>;
+	int i, j;
+	memory = new vector<void **>;
 	while (I < instructions.size())
 	{
-		if (I == 44)
-			int fuck = 0;
-		cout << "\n inst "<< I << endl;
+
+		cout << "\n inst "<< I << '\n';
 		switch (instructions[I] ->nop)
 		{
 		case INT:
@@ -1145,7 +1133,7 @@ void PARSE() {
 			b = new void*[instructions[I]->rop];
 			memory->push_back((void **)b);
 
-			t = new deque<unsigned int>;
+			t = new vector<int>;
 			((void **)b)[0] = t;
 			((void **)b)[1] = b;
 			((void **)b)[2] = new int(PC);
@@ -1161,10 +1149,10 @@ void PARSE() {
 				else
 					return;
 				
-				delete (deque<unsigned int> *)((void **)b)[0];
-				delete[]b;
+				delete (vector< int> *)((void **)b)[0];
+				delete[] ((void**)b);
 				memory->pop_back();
-				t = (deque<unsigned int > *)(memory->back()[0]);
+				t = (vector< int > *)(memory->back()[0]);
 				b = memory->back()[1];
 				continue;
 			}	
@@ -1198,7 +1186,7 @@ void PARSE() {
 				getij();
 				if (j == 0)
 				{
-					cout << "Error: Division by zero" << endl;
+					cout << "Error: Division by zero" << '\n';
 					exit(1);
 				}
 				t->push_back(i / j);
@@ -1257,7 +1245,7 @@ void PARSE() {
 			else {
 				i = t->back();
 				t->pop_back();
-				cout << i;
+				cout << i <<'\n';
 
 			}
 			break;
@@ -1293,7 +1281,7 @@ void PARSE() {
 			I = instructions[I]->rop;
 			break;
 		default:
-			cout << "Undefined Instruction: \n" << operations[instructions[I]->nop] << " " << instructions[I]->lop << " " << instructions[I]->rop << endl;
+			cout << "Undefined Instruction: \n" << operations[instructions[I]->nop] << " " << instructions[I]->lop << " " << instructions[I]->rop << '\n';
 			break;
 		}
 		I++;
@@ -1302,86 +1290,22 @@ void PARSE() {
 	delete memory;
 }
 
-inline void test_main(){
-	cout << "************************Tests*************************" << endl;
-	valarray<int>
-		a;
-	void * pointer;
-	HASH<char*> fuck = HASH<char*>("fuck", 1);
-	pointer = &fuck;
-	((HASH<char*>*) pointer)->value;
-	printf("%s\n", ((HASH<char*>*) pointer)->value);
-	int *follow;
-	int f[] = { 1,2 };
-	follow = f;
-	printf("%d\n", P(NOTEQ));
-	it = identifiers.begin() + 2;
-	stack<set<Indexes>> st1;
-	set<Indexes > fucked;
-
-
-	st1.push(fucked);
-
-
-	fucked.insert(Indexes(1, 2, 3));
-	fucked.insert(Indexes(1, 4, 3));
-	fucked.insert(Indexes(3, 3, 2));
-	fucked.insert(Indexes(1, 2, 7));
-	fucked.insert(Indexes(1, 2, 3));
-	if (st1.top().size())
-		exit(1);
-	for each (Indexes var in fucked)
-	{
-		if (var.i == 1)
-			fucked.insert(Indexes(0, var.j, var.k));
-		cout << var.i << '\t' << var.j << '\t' << var.k << endl;
-	}
-	do {
-		while (false);
-	} while (false);
-	vector<bool> B;
-	vector<long double> LD;
-	B.push_back(1);
-	LD.push_back(1);
-	deque<Instruction *> deq;
-	deq.push_back(new Instruction(1, 2, 3));
-	deq.push_back(new Instruction(3, 4, 5));
-	deq.push_back(new Instruction(0, 3, 7));
-	deq.push_back(new Instruction(4, 7, 8));
-	//(deq.begin() + 2) = 
-	deq.erase(deq.begin() + 1);
-	deque<Instruction *>::iterator iterat = deq.begin();
-
-	while (iterat != deq.end())
-	{
-		cout << (*iterat)->lop<<endl;
-		iterat++;
-	}
-	for (int i = 0; i < deq.size(); i++)
-	{
-		cout << deq[i]->lop << endl;
-	}
-	cout << "*********************Capacities***********************" << endl;
-	cout << B.capacity() << '\t' << LD.capacity() << endl;
-	cout << "*********************End  Tests***********************" << endl;
-
-}
 
 int main(int argc, char** argv)
 {
+
 	long length;
 	char* file = 0;
 	FILE *fp = NULL;
-	if (argc > 2) 
+	if (argc > 1) 
 		fp = fopen(argv[1], "r");
-//#ifdef _DEBUG
-	fp = fopen("input2.pas", "r");
-//	test_main();
-//#endif
+	else
+		fp = fopen("input.pas", "r");
+
 	if (!fp)
 		file = new char[65536]; 
 loop_input:	while (!fp) {
-		cout << "Input the path of input file."<<endl;
+		cout << "Input the path of input file."<<'\n';
 		scanf("%s", file);
 		fp = fopen(file, "r");
 	}
@@ -1389,18 +1313,17 @@ loop_input:	while (!fp) {
 	length = ftell(fp);
 	if (length > MAX_BUFFER)
 	{
-		cout << "Cannot handle now:)" << endl;
+		cout << "Cannot handle now:)" << '\n';
 		fclose(fp);
 		fp = NULL;
 		goto loop_input;
 	}
 	fseek(fp, 0, SEEK_SET);
-	free(file);
 	fread(buffer, 1, length, fp);
 	fclose(fp);
 
 	buffer[length] = ' ';
-	buffer[length] = EOF;
+	buffer[length] = 0;
 	sym.reserve(512);
 	num.reserve(512);
 	
@@ -1409,18 +1332,11 @@ loop_input:	while (!fp) {
 	//PARSING
 	BLOCK();
 	//Interprating
-
-	/*for (int i = instructions.size() -1; i > 0; i--)
-	{
-		Instruction *var = instructions[i];
-		*/
-	int inst = 0;
-
-	for each (Instruction *var in instructions)
-	{
-		cout <<inst++ <<" "<< operations[var->nop] << " "<< var->lop << " "<< var->rop << endl;
-	}
 	PARSE();
+
+	cout << "\n\nProgram ended.\n";
+	if(file)
+		delete[] file;
 	return 0;
 }
 
