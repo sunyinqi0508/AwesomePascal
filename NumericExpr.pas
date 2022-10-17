@@ -1,27 +1,25 @@
 	const a=10;
-	var b,c;
+	var b,c,e;
 	procedure p;
 		var d;
 		begin
 			d:=20;
-write(d);
 			c:=d/a;
-write(c);
 			c:=c+b;
-write(c);
 			if a<c then c:=c*2;
-write(c);
-                end;
+			write(c);
+		end;
+
 	begin
 		read (b);
 		while b#0 do
 			begin
+				e := b;
+				e := 4*e/2/3+(3*1);
 				call p;			
-				write(c);
+				write(e);
 				read(b);
-				b := 4*b/2/3+(3*1);
-write(b);
 			end;
-		b:=1;
-write(b);
+		b:=999999999;
+		write(b);
 	end.

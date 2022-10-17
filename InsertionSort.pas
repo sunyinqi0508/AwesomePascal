@@ -48,8 +48,6 @@
 				j:=f;
 				i:=t;
 				call q;
-write(a);
-write(b);
 				begi:=begi+1;		
 			end;
 		write(b);

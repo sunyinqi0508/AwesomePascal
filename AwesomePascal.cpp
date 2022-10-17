@@ -1119,7 +1119,7 @@ void PARSE() {
 	while (I < instructions.size())
 	{
 
-		cout << "\n inst "<< I << '\n';
+		// cout << "\n inst "<< I << '\n';
 		switch (instructions[I] ->nop)
 		{
 		case INT:
